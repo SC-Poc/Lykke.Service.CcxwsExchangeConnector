@@ -3,16 +3,19 @@ const path = require('path');
 const LogFactory =  require('./utils/logFactory')
 const mapping = require('./utils/assetPairsMapping')
 const getSocketIO = require('./socketio/socketio')
-const prometheus = require('prom-client');
+const getZeroMq = require('./zeromq/zeromq')
 const Metrics = require('./prometheus/metrics')
+var protobuf = require("protobufjs")
 
 class ExchangeEventsHandler {
-    
     constructor(exchange, settings, rabbitMq) {
         this._exchange = exchange
         this._settings = settings
         this._rabbitMq = rabbitMq
         this._socketio = getSocketIO(settings)
+        this._zeroMq = getZeroMq(settings)
+  
+
         this._orderBooks = new Map()
         this._lastTimePublished = new Map()
         this._log = LogFactory.create(path.basename(__filename), settings.Main.LoggingLevel)
@@ -21,6 +24,10 @@ class ExchangeEventsHandler {
         const suffix = suffixConfig ? suffixConfig : ""
         this._source = this._exchange.name.replace(this._exchange.version, "").trim()
         this._source = this._source + suffix
+
+        this._protoFile = new protobuf.Root().loadSync(__dirname + '/gRPC/orderbooks.proto', {keepCase: true});
+        this._protoBufRoot = this._protoFile.loadSync({root:"common"});
+        this._orderbookResponse = this._protoBufRoot.lookupType("GetOrderBooksResponse");
     }
 
     // event handlers
@@ -61,8 +68,7 @@ class ExchangeEventsHandler {
         // publish
         if (this._isTimeToPublishOrderBook(key))
         {
-            const publishingOrderBook = this._mapInternalOrderBookToPublishOrderBook(internalOrderBook)
-            await this._publishOrderBook(publishingOrderBook)
+            await this._publishOrderBook(internalOrderBook)
 
             this._lastTimePublished.set(key, moment.utc())
         }
@@ -122,8 +128,7 @@ class ExchangeEventsHandler {
         const publish = this._isTimeToPublishOrderBook(key)
         if (publish)
         {
-            const publishingOrderBook = this._mapInternalOrderBookToPublishOrderBook(internalOrderBook)
-            await this._publishOrderBook(publishingOrderBook)
+            await this._publishOrderBook(internalOrderBook)
 
             this._lastTimePublished.set(key, moment.utc().valueOf())
         }
@@ -144,14 +149,31 @@ class ExchangeEventsHandler {
         }
     }
 
-    async _publishOrderBook(orderBook) {
+    async _publishOrderBook(internalOrderBook) {
         if (this._settings.Main.Events.OrderBooks.Publish)
         {
+            const timestamp = internalOrderBook.timestamp;
+            const orderBook = this._mapInternalOrderBookToPublishOrderBook(internalOrderBook)
+            
             if (!this._settings.RabbitMq.Disabled && this._rabbitMq != null)
                 await this._rabbitMq.send(this._settings.RabbitMq.OrderBooks, orderBook)
 
             if (!this._settings.SocketIO.Disabled && this._socketio != null)
                 this._socketio.sockets.send(orderBook);
+
+            if (!this._settings.ZeroMq.Disabled && this._zeroMq != null) {
+                if (this._settings.ZeroMq.Serializer == "protobuf") {
+                    const protoOrderBook = this._mapPublishOrderBookToProtobufOrderBook(orderBook, timestamp)
+                    var payload = this._orderbookResponse.create({order_books: [protoOrderBook]})
+                    const message = this._orderbookResponse.encode(payload).finish();
+                    this._zeroMq.send(["orderbooks", message]);
+                    this._log.debug(`Order Book: ${protoOrderBook.source} ${protoOrderBook.asset}, bids:${protoOrderBook.bids.length}, asks:${protoOrderBook.asks.length}, best bid:${protoOrderBook.bids[0].price}, best ask:${protoOrderBook.asks[0].price}, timestamp: ${JSON.stringify(protoOrderBook.timestamp)}.`)
+                }
+                else if (this._settings.ZeroMq.Serializer == "json") {
+                    this._zeroMq.send(["orderbooks", JSON.stringify(orderBook)]);
+                    this._log.debug(`Order Book: ${orderBook.source} ${orderBook.asset}, bids:${orderBook.bids.length}, asks:${orderBook.asks.length}, best bid:${orderBook.bids[0].price}, best ask:${orderBook.asks[0].price}, timestamp: ${orderBook.timestamp}.`)
+                }
+            }
 
             Metrics.order_book_out_count.labels(orderBook.source, `${orderBook.base}/${orderBook.quote}`).inc()
 
@@ -221,7 +243,30 @@ class ExchangeEventsHandler {
 
         return internalOrderBook
     }
-    
+
+    _getProtoTimestamp(dateTime){
+        if (dateTime == null || dateTime == undefined){
+            return {};
+        }
+
+        const protoTimestamp = {};
+        protoTimestamp.seconds = dateTime / 1000;
+        protoTimestamp.nanos = (dateTime % 1000) * 1e6;
+        return protoTimestamp
+    }
+
+    _mapPublishOrderBookToProtobufOrderBook(publishOrderBook, timestamp) {
+        const protoOrderBook = {}
+        protoOrderBook.source = publishOrderBook.source
+        protoOrderBook.assetPair = publishOrderBook.assetPair
+        protoOrderBook.bids = publishOrderBook.bids
+        protoOrderBook.asks = publishOrderBook.asks
+        protoOrderBook.timestamp = this._getProtoTimestamp(timestamp)
+        protoOrderBook.timestamp_in = this._getProtoTimestamp(publishOrderBook.timestampin)
+        protoOrderBook.timestampMs = this._getProtoTimestamp(publishOrderBook.timestampMs)
+        return protoOrderBook
+    }
+
     _mapInternalOrderBookToPublishOrderBook(internalOrderBook) {
         const symbol = mapping.MapAssetPairBackward(internalOrderBook.assetPair, this._settings)
     
