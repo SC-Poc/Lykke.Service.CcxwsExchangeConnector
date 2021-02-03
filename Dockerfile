@@ -3,8 +3,9 @@ WORKDIR /app
 COPY package.json /app
 RUN npm install npm@latest -g
 RUN npm install
-npx electron-rebuild
-npm rebuild
+RUN npm install npx@latest -g
+RUN npx electron-rebuild
+RUN npm rebuild
 COPY . /app
 CMD node app.js
 EXPOSE 5000
