@@ -15,7 +15,7 @@ jobs:
     - name: Use Node.js 10.x
       uses: actions/setup-node@v1
       with:
-        node-version: 10.x
+        node-version: 12.x
     - run: npm install
     - name: Publish to Registry
       uses: swisschain/Publish-Docker-Github-Action@master
