@@ -15,14 +15,14 @@ function getSocketIO(settings) {
   const isDisabled = settings.SocketIO.Disabled
   const port = settings.SocketIO.Port
 
-  if (!isDisabled)
+  if (!isDisabled){
     socketio = socketioServer.listen(port)
 
-  hostPort = socketio.httpServer._connectionKey
-  hostPort = hostPort.replace('6:::', 'localhost')
+    hostPort = socketio.httpServer._connectionKey
+    hostPort = hostPort.replace('6:::', 'localhost')
 
-  _log.info(`Listening Socket.IO at http://${hostPort}`)
-
+    _log.info(`Listening Socket.IO at http://${hostPort}`)
+  }
   return socketio
 }
 
