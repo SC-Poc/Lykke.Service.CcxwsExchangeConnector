@@ -13,14 +13,14 @@ function getZeroMq(settings) {
   _log = LogFactory.create(path.basename(__filename), settings.Main.LoggingLevel)
 
   const isDisabled = settings.ZeroMq.Disabled
-  const port = settings.ZeroMq.Port
+  const address = settings.ZeroMq.Address
   
   zeromq = zmq.socket("pub");
   if (!isDisabled){
-    zeromq.bindSync("tcp://127.0.0.1:" + port);
+    zeromq.bindSync(address);
   }
 
-  _log.info(`ZeroMQ is publishing from 'tcp://127.0.0.1:${port}'`)
+  _log.info(`ZeroMQ is publishing from '${address}'`)
 
   return zeromq
 }
