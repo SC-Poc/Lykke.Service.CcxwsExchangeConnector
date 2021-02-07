@@ -7,13 +7,17 @@ function MapExchangeCcxtToCcxws(ccxtExchangeName, options){
         case 'binance':
             return new ccxws.Binance(options)
         case 'bitfinex':
-            return new ccxws.Bitfinex(options)
+            return new ccxws.bitfinex(options)
+        case 'bitfinex2':
+            return new ccxws.Bitfinex(options)            
         case 'bitflyer':
             return new ccxws.Bitflyer(options)
         case 'bitmex':
             return new ccxws.BitMEX(options)
         case 'bitstamp':
             return new ccxws.Bitstamp(options)
+        case 'bithumb':
+            return new ccxws.Bithumb(options)
         case 'bittrex':
             return new ccxws.Bittrex(options)
         case 'cex':
@@ -22,6 +26,8 @@ function MapExchangeCcxtToCcxws(ccxtExchangeName, options){
             return new ccxws.coinex(options)
         case 'coinbasepro':
             return new ccxws.coinbasepro(options)
+        case 'deribit':
+            return new ccxws.Deribit(options)
         case 'ftx':
             return new ccxws.ftx(options)
         case 'gateio':
@@ -35,7 +41,7 @@ function MapExchangeCcxtToCcxws(ccxtExchangeName, options){
         case 'kraken':
             return new ccxws.kraken(options)
         case 'kucoin':
-            return new ccxws.kucoin(options)
+            return new ccxws.kucoin(options) 
         case 'liquid':
             return new ccxws.liquid(options)
         case 'okex':

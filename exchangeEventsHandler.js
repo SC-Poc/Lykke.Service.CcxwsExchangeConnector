@@ -14,7 +14,6 @@ class ExchangeEventsHandler {
         this._rabbitMq = rabbitMq
         this._socketio = getSocketIO(settings)
         this._zeroMq = getZeroMq(settings)
-  
 
         this._orderBooks = new Map()
         this._lastTimePublished = new Map()
@@ -38,7 +37,7 @@ class ExchangeEventsHandler {
         let isValid = quote.ask > 0 && quote.bid > 0
 
         if (!isValid) {
-            //sometimes ask and bid are null, has to be investigated
+            //TODO: sometimes ask and bid are null, has to be investigated
             //this._log.warn(`${quote.source} Quote is invalid: ${JSON.stringify(quote)}.`)
             return;
         }
