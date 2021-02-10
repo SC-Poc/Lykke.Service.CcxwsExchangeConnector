@@ -55,9 +55,28 @@ class ExchangeEventsHandler {
         }
 
         // update cache
-        const internalOrderBook = this._mapCcxwsOrderBookToInternalOrderBook(orderBook)
         const key = orderBook.marketId
+
+        const currentOrderBook = this._orderBooks.get(key)
+        var previousBestBid
+        var previousBestAsk
+        if (currentOrderBook) {
+            previousBestBid = this._orderBooks.get(key).bids.keys().next().value
+            previousBestAsk = this._orderBooks.get(key).asks.keys().next().value
+        }
+
+        const internalOrderBook = this._mapCcxwsOrderBookToInternalOrderBook(orderBook)
         this._orderBooks.set(key, internalOrderBook)
+
+        if (currentOrderBook) {
+            const currentBestBid = this._orderBooks.get(key).bids.keys().next().value
+            const currentBestAsk = this._orderBooks.get(key).asks.keys().next().value
+            const noPriceChange = previousBestBid == currentBestBid && previousBestAsk == currentBestAsk
+            if (this._settings.Main.Events.OrderBooks.PublishOnlyIfBboPricesChanged && noPriceChange) {
+                //this._log.debug(`Skipped order book ${this._exchange.name} ${key} - no price change.`)
+                return
+            }
+        }
 
         // metrics
         const ob = internalOrderBook
@@ -92,6 +111,9 @@ class ExchangeEventsHandler {
             return
         }
 
+        const previousBestBid = internalOrderBook.bids.keys().next().value
+        const previousBestAsk = internalOrderBook.asks.keys().next().value
+
         updateOrderBook.asks.forEach(ask => {
             const updateAskPrice = parseFloat(ask.price)
             const updateAskSize = parseFloat(ask.size)
@@ -117,6 +139,15 @@ class ExchangeEventsHandler {
             internalOrderBook.timestamp = moment(internalOrderBook.timestampMs)
         else
             internalOrderBook.timestamp = moment.utc()
+
+        const currentBestBid = internalOrderBook.bids.keys().next().value
+        const currentBestAsk = internalOrderBook.asks.keys().next().value
+        const noPriceChange = previousBestBid == currentBestBid && previousBestAsk == currentBestAsk
+
+        if (this._settings.Main.Events.OrderBooks.PublishOnlyIfBboPricesChanged && noPriceChange){
+            //this._log.debug(`Skipped order book ${this._exchange.name} ${key} - no price change.`)
+            return
+        }
 
         // metrics
         const ob = internalOrderBook
