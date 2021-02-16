@@ -28,18 +28,16 @@ let rabbitMq
     rabbitMq = new RabbitMq(settings.RabbitMq, settings.Main.LoggingLevel)
     await rabbitMq.getChannel()
 
-    subscribeToExchangesData()
+    var handler = await subscribeToExchangesData()
 
-    await startWebServer(settings.Main.LoggingLevel)
+    await startWebServer(settings.Main.LoggingLevel, handler)
 })();
 
 async function subscribeToExchangesData() {
     const exchanges = settings.Main.Exchanges
     const symbols = settings.Main.Symbols
 
-    await Promise.all(exchanges.map (exchangeName =>
-        subscribeToExchangeData(exchangeName, symbols, settings)
-    ))
+    return await subscribeToExchangeData(exchanges[0], symbols, settings);
 }
 
 async function subscribeToExchangeData(exchangeName, symbols, settings) {
@@ -125,6 +123,8 @@ async function subscribeToExchangeData(exchangeName, symbols, settings) {
                 return
             }
         });
+
+        return handler;
     } catch (e) {
         log.warn(`Exception occured during loading markets for '${exchange.id}': ${e}`)
         return

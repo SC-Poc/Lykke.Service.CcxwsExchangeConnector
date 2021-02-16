@@ -13,6 +13,7 @@ class ExchangeEventsHandler {
         this._settings = settings
         this._rabbitMq = rabbitMq
         this._socketio = getSocketIO(settings)
+
         this._zeroMq = getZeroMq(settings)
 
         this._orderBooks = new Map()
@@ -43,6 +44,25 @@ class ExchangeEventsHandler {
         }
 
         await this._publishQuote(quote)
+    }
+
+    getSnapshot(){
+
+        const protoOrderBooks = [];
+
+        for (let [key, value] of this._orderBooks) {
+            var protoOrderBook = this._mapPublishOrderBookToProtobufOrderBook(
+                    this._mapInternalOrderBookToPublishOrderBook(value)
+                );
+            protoOrderBooks.push(protoOrderBook)
+        } 
+
+
+        var payload = this._orderbookResponse.create({order_books: protoOrderBooks})
+        const message = this._orderbookResponse.encode(payload).finish();
+
+        this._log.debug("Snapshot created, there are " + protoOrderBooks.length + " order books")
+        return message;
     }
 
     async l2snapshotEventHandle(orderBook) {
@@ -158,7 +178,14 @@ class ExchangeEventsHandler {
         const publish = this._isTimeToPublishOrderBook(key)
         if (publish)
         {
-            await this._publishOrderBook(internalOrderBook)
+            if (this._settings.Main.Events.OrderBooks.PublishFullOrderBooks){
+                await this._publishOrderBook(internalOrderBook)
+            }
+            else {
+                var directlyMappedInternalOrderbook = this._mapCcxwsOrderBookToInternalOrderBook(updateOrderBook)
+                await this._publishOrderBook(directlyMappedInternalOrderbook)
+            }
+
 
             this._lastTimePublished.set(key, moment.utc().valueOf())
         }
@@ -210,7 +237,6 @@ class ExchangeEventsHandler {
 
             this._log.debug(`Order Book: ${orderBook.source} ${orderBook.asset}, ` + 
                 `levels:[${orderBook.bids.length}, ${orderBook.asks.length}], ` + 
-                `bbo:[${orderBook.bids[0].price}, ${orderBook.asks[0].price}], ` + 
                 `volumes: [${orderBook.bidsVolume.toFixed(2)}, ${orderBook.asksVolume.toFixed(2)}], ` + 
                 `timestamp: ${orderBook.timestamp}.`)
         }
@@ -358,7 +384,7 @@ class ExchangeEventsHandler {
     
         return publishingOrderBook
     }
-    
+
     // utils
 
     _isTimeToPublishOrderBook(key) {
