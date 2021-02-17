@@ -28,6 +28,7 @@ class ExchangeEventsHandler {
         this._protoFile = new protobuf.Root().loadSync(__dirname + '/gRPC/orderbooks.proto', {keepCase: true});
         this._protoBufRoot = this._protoFile.loadSync({root:"common"});
         this._orderbookResponse = this._protoBufRoot.lookupType("GetOrderBooksResponse");
+        this._orderbookUpdateResponse = this._protoBufRoot.lookupType("GetOrderBookUpdateResponse");
     }
 
     // event handlers
@@ -52,14 +53,15 @@ class ExchangeEventsHandler {
 
         for (let [key, value] of this._orderBooks) {
             var protoOrderBook = this._mapPublishOrderBookToProtobufOrderBook(
-                    this._mapInternalOrderBookToPublishOrderBook(value)
+                    this._mapInternalOrderBookToPublishOrderBook(value),
+                    value.timestamp
                 );
             protoOrderBooks.push(protoOrderBook)
         } 
 
 
-        var payload = this._orderbookResponse.create({order_books: protoOrderBooks})
-        const message = this._orderbookResponse.encode(payload).finish();
+        var payload = this._orderbookUpdateResponse.create({orderBookUpdates: protoOrderBooks})
+        const message = this._orderbookUpdateResponse.encode(payload).finish();
 
         this._log.debug("Snapshot created, there are " + protoOrderBooks.length + " order books")
         return message;
@@ -221,8 +223,8 @@ class ExchangeEventsHandler {
             if (!this._settings.ZeroMq.Disabled && this._zeroMq != null) {
                 if (this._settings.ZeroMq.Serializer == "protobuf") {
                     const protoOrderBook = this._mapPublishOrderBookToProtobufOrderBook(orderBook, timestamp)
-                    var payload = this._orderbookResponse.create({order_books: [protoOrderBook]})
-                    const message = this._orderbookResponse.encode(payload).finish();
+                    var payload = this._orderbookUpdateResponse.create({orderBookUpdates: [protoOrderBook]})
+                    const message = this._orderbookUpdateResponse.encode(payload).finish();
                     this._zeroMq.send(["orderbooks", message]);
                 }
                 else if (this._settings.ZeroMq.Serializer == "json") {
@@ -316,8 +318,6 @@ class ExchangeEventsHandler {
         protoOrderBook.bids = publishOrderBook.bids
         protoOrderBook.asks = publishOrderBook.asks
         protoOrderBook.timestamp = this._getProtoTimestamp(timestamp)
-        protoOrderBook.timestamp_in = this._getProtoTimestamp(publishOrderBook.timestampin)
-        protoOrderBook.timestampMs = this._getProtoTimestamp(publishOrderBook.timestampMs)
         return protoOrderBook
     }
 
