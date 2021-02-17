@@ -6,7 +6,7 @@ const prometheus = require('prom-client')
 
 let _log
 
-async function startWebServer(loggingLevel) {
+async function startWebServer(loggingLevel, exchangeEventsHandler) {
     _log = LogFactory.create(path.basename(__filename), loggingLevel)
     
     const response = {
@@ -33,6 +33,11 @@ async function startWebServer(loggingLevel) {
         } catch (ex) {
             res.status(500).end(ex);
         }
+    })
+
+    app.get('/api/snapshots', function (req, res) {
+        res.header("Content-Type",'application/json')
+        res.send(exchangeEventsHandler.getSnapshot())
     })
 
     const server = app.listen(5000, function () {
