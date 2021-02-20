@@ -73,7 +73,7 @@ class ExchangeEventsHandler {
         if (orderBook.timestampMs){
             const delayMs = moment.utc().valueOf() - orderBook.timestampMs
             if (delayMs > 200)
-                this._log.warn(`Order book ${orderBook.exchange} ${orderBook.base}/${orderBook.quote} is older then ${delayMs} ms.`)
+                this._log.warn(`Received Order book ${orderBook.exchange} ${orderBook.base}/${orderBook.quote} is older then ${delayMs} ms.`)
             Metrics.order_book_in_delay_ms.labels(orderBook.exchange, `${orderBook.base}/${orderBook.quote}`).set(delayMs)
             Metrics.order_book_in_delay.observe(delayMs)
         }
@@ -121,7 +121,7 @@ class ExchangeEventsHandler {
         if (updateOrderBook.timestampMs){
             const delayMs = moment.utc().valueOf() - updateOrderBook.timestampMs
             if (delayMs > 200)
-                this._log.warn(`Order book ${updateOrderBook.exchange} ${updateOrderBook.base}/${updateOrderBook.quote} is older then ${delayMs} ms.`)
+                this._log.warn(`Received Order book update ${updateOrderBook.exchange} ${updateOrderBook.base}/${updateOrderBook.quote} is older then ${delayMs} ms.`)
             Metrics.order_book_in_delay_ms.labels(updateOrderBook.exchange, `${updateOrderBook.base}/${updateOrderBook.quote}`).set(delayMs)
             Metrics.order_book_in_delay.observe(delayMs)
         }
@@ -239,6 +239,8 @@ class ExchangeEventsHandler {
             Metrics.order_book_out_count.labels(orderBook.source, `${orderBook.base}/${orderBook.quote}`).inc()
 
             const delayMs = moment.utc().valueOf() - orderBook.timestampMs
+            if (delayMs > 200)
+                this._log.warn(`Published Order book ${orderBook.exchange} ${orderBook.assetPair.base}/${orderBook.assetPair.quote} is older then ${delayMs} ms.`)
             Metrics.order_book_out_delay_ms.labels(orderBook.source, `${orderBook.assetPair.base}/${orderBook.assetPair.quote}`).set(delayMs)
 
             this._log.debug(`Order Book: ${orderBook.source} ${orderBook.asset}, ` + 
