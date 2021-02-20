@@ -63,7 +63,7 @@ class ExchangeEventsHandler {
         var payload = this._orderbookUpdateResponse.create({orderBookUpdates: protoOrderBooks})
         const message = this._orderbookUpdateResponse.encode(payload).finish();
 
-        this._log.debug("Snapshot created, there are " + protoOrderBooks.length + " order books")
+        this._log.debug(`Snapshot created, there are ${protoOrderBooks.length} order books.`)
         return message;
     }
 
@@ -72,6 +72,8 @@ class ExchangeEventsHandler {
         Metrics.order_book_in_count.labels(orderBook.exchange, `${orderBook.base}/${orderBook.quote}`).inc()
         if (orderBook.timestampMs){
             const delayMs = moment.utc().valueOf() - orderBook.timestampMs
+            if (delayMs > 200)
+                this._log.warn(`Order book ${orderBook.exchange} ${orderBook.base}/${orderBook.quote} is older then ${delayMs} ms.`)
             Metrics.order_book_in_delay_ms.labels(orderBook.exchange, `${orderBook.base}/${orderBook.quote}`).set(delayMs)
             Metrics.order_book_in_delay.observe(delayMs)
         }
@@ -118,6 +120,8 @@ class ExchangeEventsHandler {
         Metrics.order_book_in_count.labels(updateOrderBook.exchange, `${updateOrderBook.base}/${updateOrderBook.quote}`).inc()
         if (updateOrderBook.timestampMs){
             const delayMs = moment.utc().valueOf() - updateOrderBook.timestampMs
+            if (delayMs > 200)
+                this._log.warn(`Order book ${updateOrderBook.exchange} ${updateOrderBook.base}/${updateOrderBook.quote} is older then ${delayMs} ms.`)
             Metrics.order_book_in_delay_ms.labels(updateOrderBook.exchange, `${updateOrderBook.base}/${updateOrderBook.quote}`).set(delayMs)
             Metrics.order_book_in_delay.observe(delayMs)
         }

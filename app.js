@@ -47,7 +47,7 @@ async function subscribeToExchangeData(exchangeName, symbols, settings) {
     try {
         exchange = new ccxt[exchangeName]()
     } catch(e){
-        log.warn(`${exchangeName} wasn't found in ccxt: ${e}`)
+        log.warn(`${exchangeName} wasn't found in ccxt: ${e}.`)
         return
     }
 
@@ -67,7 +67,7 @@ async function subscribeToExchangeData(exchangeName, symbols, settings) {
         exchange.timeout = 30 * 1000
         allMarkets = await exchange.loadMarkets()
     } catch (e) {
-        log.warn(`${exchange.id} can't load markets: ${e}`)
+        log.warn(`${exchange.id} can't load markets: ${e}.`)
         return
     }
 
@@ -119,14 +119,14 @@ async function subscribeToExchangeData(exchangeName, symbols, settings) {
                 if (settings.Main.Events.Trades.Subscribe)
                     exchange_ws.subscribeTrades(market)
             } catch (e) {
-                log.warn(`${exchange.id} can't subscribe : ${e}`)
+                log.warn(`${exchange.id} can't subscribe : ${e}.`)
                 return
             }
         });
 
         return handler;
     } catch (e) {
-        log.warn(`Exception occured during loading markets for '${exchange.id}': ${e}`)
+        log.warn(`Exception occured during loading markets for '${exchange.id}': ${e}.`)
         return
     }
 }
