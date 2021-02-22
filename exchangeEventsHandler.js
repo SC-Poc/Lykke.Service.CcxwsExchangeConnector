@@ -218,6 +218,13 @@ class ExchangeEventsHandler {
             const timestamp = internalOrderBook.timestamp;
             const orderBook = this._mapInternalOrderBookToPublishOrderBook(internalOrderBook)
             
+            const delayMs = moment.utc().valueOf() - orderBook.timestampMs
+            Metrics.order_book_out_delay_ms.labels(orderBook.source, `${orderBook.assetPair.base}/${orderBook.assetPair.quote}`).set(delayMs)
+            if (delayMs > 200){
+                this._log.warn(`Published Order book ${orderBook.exchange} ${orderBook.assetPair.base}/${orderBook.assetPair.quote} is older then ${delayMs} ms.`)
+                return
+            }
+
             if (!this._settings.RabbitMq.Disabled && this._rabbitMq != null)
                 await this._rabbitMq.send(this._settings.RabbitMq.OrderBooks, orderBook)
 
@@ -237,11 +244,6 @@ class ExchangeEventsHandler {
             }
 
             Metrics.order_book_out_count.labels(orderBook.source, `${orderBook.base}/${orderBook.quote}`).inc()
-
-            const delayMs = moment.utc().valueOf() - orderBook.timestampMs
-            if (delayMs > 200)
-                this._log.warn(`Published Order book ${orderBook.exchange} ${orderBook.assetPair.base}/${orderBook.assetPair.quote} is older then ${delayMs} ms.`)
-            Metrics.order_book_out_delay_ms.labels(orderBook.source, `${orderBook.assetPair.base}/${orderBook.assetPair.quote}`).set(delayMs)
 
             this._log.debug(`Order Book: ${orderBook.source} ${orderBook.asset}, ` + 
                 `levels:[${orderBook.bids.length}, ${orderBook.asks.length}], ` + 
