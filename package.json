@@ -13,7 +13,7 @@
     "node-fetch": "^2.2.1",
     "prom-client": "^13.0.0",
     "protobufjs": "^6.10.2",
-    "socket.io": "^2.3.0",
+    "socket.io": "^2.4.0",
     "winston": "^3.3.3",
     "zeromq": "5.2.0"
   },
