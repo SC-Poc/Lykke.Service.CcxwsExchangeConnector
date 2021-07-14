@@ -25,10 +25,15 @@ class ExchangeEventsHandler {
         this._source = this._exchange.name.replace(this._exchange.version, "").trim()
         this._source = this._source + suffix
 
-        this._protoFile = new protobuf.Root().loadSync(__dirname + '/gRPC/orderbooks.proto', {keepCase: true});
-        this._protoBufRoot = this._protoFile.loadSync({root:"common"});
-        this._orderbookResponse = this._protoBufRoot.lookupType("GetOrderBooksResponse");
-        this._orderbookUpdateResponse = this._protoBufRoot.lookupType("GetOrderBookUpdateResponse");
+        this._OBProtoFile = new protobuf.Root().loadSync(__dirname + '/gRPC/orderbooks.proto', {keepCase: true});
+        this._OBprotoBufRoot = this._OBProtoFile.loadSync({root:"common"});
+        this._orderbookResponse = this._OBprotoBufRoot.lookupType("GetOrderBooksResponse");
+        this._orderbookUpdateResponse = this._OBprotoBufRoot.lookupType("GetOrderBookUpdateResponse");
+
+
+        this._TradeProtoFile = new protobuf.Root().loadSync(__dirname + '/gRPC/trades.proto', {keepCase: true});
+        this._TradeprotoBufRoot = this._TradeProtoFile.loadSync({root:"common"});
+        this._trade = this._TradeprotoBufRoot.lookupType("Trade");
     }
 
     // event handlers
@@ -253,13 +258,37 @@ class ExchangeEventsHandler {
     async _publishTrade(trade) {
         if (this._settings.Main.Events.Trades.Publish)
         {
-            await this._rabbitMq.send(this._settings.RabbitMq.Trades, trade)
+            if (this._settings.Main.Events.Trades.Serializer = "protobuf") {
+                var protoTrade = this._mapCcxwsTradeToProtoTrade(trade);
+                var payload = this._trade.create(protoTrade)
+                const message = this._trade.encode(payload).finish();
+                await this._rabbitMq.send(this._settings.RabbitMq.Trades, message)
+            }
+            else {
+                await this._rabbitMq.send(this._settings.RabbitMq.Trades, trade)
+            }
 
             this._log.debug(`Trade: ${trade.exchange}, ${trade.base}/${trade.quote}, price: ${trade.price}, amount: ${trade.amount}, side: ${trade.side}.`)
         }
     }
 
     // mapping
+
+    _mapCcxwsTradeToProtoTrade(trade){
+        const protoTrade = {}
+        protoTrade.venue = trade.exchange
+        protoTrade.tradeId = trade.tradeId
+        protoTrade.assetPairId = trade.marketId
+        protoTrade.price = trade.price
+        if (trade.side == "sell") {
+            protoTrade.filledSize = trade.amount * -1
+        }
+        else if (trade.side == "buy") {
+            protoTrade.filledSize = trade.amount
+        }
+        protoTrade.timestamp = trade.unix
+        return protoTrade
+    }
 
     _mapCcxwsTickerToPublishQuote(ticker) {
         const quote = {}
